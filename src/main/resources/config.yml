@@ -1,5 +1,86 @@
 # dynmap-mobs configuration
 #
+## MOBS:
+# creeper
+# skeleton
+# zombie
+# blaze
+# ghast
+# silverfish
+# slime
+# spider
+# wolf
+# zombiepigman
+# enderdragon
+# snowgolem
+# cavespider
+# spiderjockey
+# enderman
+# cow
+# pig
+# chicken
+# squid
+# sheep
+# villager
+# mooshroom
+# tamedwolf  
+# ocelot
+# cat
+# golem
+# witch
+# witherskeleton
+# wither
+# zombievillager
+# bat
+# vanillahorse
+# rabbit
+# endermite
+# magmacube
+# guardian
+## Mo'Creatures Mobs
+# horse
+# fireogre
+# caveogre
+# ogre
+# boar
+# polarbear
+# bear
+# duck
+# bigcat
+# deer
+# wildwolf
+# flamewraith
+# wraith
+# bunny
+# bird
+# fox
+# werewolf
+# shark
+# dolphin
+# fishy
+# kitty
+# hellrat
+# rat
+# mouse
+# scorpion
+# turtle
+# crocodile
+# ray
+# jellyfish
+# goat
+# snake
+# ostrich
+## VEHICLES:
+## Specific minecart types
+# explosive-minecart
+# hopper-minecart
+# powered-minecart
+# spawner-minecart
+# storage-minecart
+# minecart
+## Boats
+# boat
+
 update:
   # Seconds between position updates for mobs
   period: 5.0
@@ -14,152 +95,28 @@ update:
   # Mob updates per tick (prevent lag spikes when large number of mobs)
   mobs-per-tick: 20
   # Vehicle updates per tick (prevent lag spikes when large number of vehicles)
-  vehicles-per-tick: 20
-
-mobs:
-  # Include creepers
-  creeper: true
-  # Include skeletons
-  skeleton: true
-  # Include zombies
-  zombie: true
-  # Include blazes
-  blaze: true
-  # Include ghasts
-  ghast: true
-  # Include silverfish
-  silverfish: true
-  # Include slimes
-  slime: true
-  # Include spiders
-  spider: true
-  # Include wolves
-  wolf: true
-  # Include zombie-pigmen
-  zombiepigman: true
-  # Include Enderdragon
-  enderdragon: true
-  # Include snow golems
-  snowgolem: true
-  # Include cave spider
-  cavespider: true
-  # Include spider jockey
-  spiderjockey: true
-  # Include enderman
-  enderman: true
-  # Include cows
-  cow: false
-  # Include pigs
-  pig: false
-  # Include chickens
-  chicken: false
-  # Include squids
-  squid: false
-  # Include sheep
-  sheep: false
-  # Include villagers
-  villager: false
-  # Include mooshroom
-  mooshroom: false
-  # Include tamed wolves
-  tamedwolf: true  
-  # Include ocelots
-  ocelot: true
-  # Include tamed cats
-  cat: true
-  # Include Iron golems
-  golem: false
-  # Include witches
-  witch: false
-  # Include wither skeletons
-  witherskeleton: true
-  # Include wither
-  wither: true
-  # Include zombie villager
-  zombievillager: true
-  # Include bats
-  bat: false
-  # Include horses (vanilla MC)
-  vanillahorse: false
-  # Include rabbits
-  rabbit: false
-  # Include endermites
-  endermite: true
-  # Include magma cube
-  magmacube: true
-  # Include guardian
-  guardian: true
-  # Mo'Creatures Mobs
-  horse: false
-  fireogre: false
-  caveogre: false
-  ogre: false
-  boar: false
-  polarbear: false
-  bear: false
-  duck: false
-  bigcat: false
-  deer: false
-  wildwolf: false
-  flamewraith: false
-  wraith: false
-  bunny: false
-  bird: false
-  fox: false
-  werewolf: false
-  shark: false
-  dolphin: false
-  fishy: false
-  kitty: false
-  hellrat: false
-  rat: false
-  mouse: false
-  scorpion: false
-  turtle: false
-  crocodile: false
-  ray: false
-  jellyfish: false
-  goat: false
-  snake: false
-  ostrich: false
-
-vehicles:
-  # Specific minecart types
-  explosive-minecart: false
-  hopper-minecart: false
-  powered-minecart: false
-  spawner-minecart: false
-  storage-minecart: false
-  minecart: false
-  # Boats
-  boat: false
+  vehicles-per-tick: 20  
   
-layer:
-  name: "Mobs"
-  # Make mobs layer hidden by default
-  hidebydefault: false
-  # ordering priority in layer menu (low goes before high - default is 0)
-  layerprio: 10
-  # (optional) if true, use tiny marker icons (8x8) - default is 16x16
-  tinyicons: false
-  # (optional) if true, don't show labels on mob icons
-  nolabels: false
-  # (optional) set minimum zoom level when mob icons should be visible (0=default, any zoom)
-  minzoom: 0
-  # (optional) include coordinate in label for icon
-  inc-coord: false
-  
-vehiclelayer:
-  name: "Vehicles"
-  hidebydefault: false
-  # ordering priority in layer menu (low goes before high - default is 0)
-  layerprio: 11
-  # (optional) if true, use tiny marker icons (8x8) - default is 16x16
-  tinyicons: false
-  # (optional) if true, don't show labels on mob icons
-  nolabels: false
-  # (optional) set minimum zoom level when mob icons should be visible (0=default, any zoom)
-  minzoom: 0
-  # (optional) include coordinate in label for icon
-  inc-coord: false
-  
+layers:
+  Wildlife:
+    entities:
+    - cow
+    - pig
+    - chicken
+    - sheep
+    - mooshroom
+    hidebydefault: false
+    layerprio: 12
+    tinyicons: false
+    nolabels: false
+    minzoom: 0
+    inc-coord: false
+  Villagers:
+    entities:
+    - villager
+    hidebydefault: false
+    layerprio: 13
+    tinyicons: false
+    nolabels: false
+    minzoom: 0
+    inc-coord: false

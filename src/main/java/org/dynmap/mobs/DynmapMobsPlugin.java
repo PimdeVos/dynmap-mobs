@@ -43,6 +43,7 @@ import org.dynmap.markers.MarkerAPI;
 import org.dynmap.markers.MarkerIcon;
 import org.dynmap.markers.MarkerSet;
 import org.dynmap.markers.Marker;
+import org.dynmap.mobs.MetricsLite;
 
 public class DynmapMobsPlugin extends JavaPlugin {
     private static Logger log;
@@ -50,8 +51,7 @@ public class DynmapMobsPlugin extends JavaPlugin {
     DynmapAPI api;
     MarkerAPI markerapi;
     FileConfiguration cfg;
-    MarkerSet set;
-    MarkerSet vset;
+    Map<String, MarkerSet> markerSets = new HashMap<String, MarkerSet>(); /* Container for MarkerSets */
     double res; /* Position resolution */
     long updperiod;
     long vupdperiod;
@@ -93,7 +93,8 @@ public class DynmapMobsPlugin extends JavaPlugin {
     /* Mapping of mobs to icons */
     private static class MobMapping {
         String mobid;
-        boolean enabled;
+        boolean enabled = false;
+        String occursInMarkerSet;
         Class<Entity> mobclass;
         Class<?> entclass;
         String cls_id;
@@ -234,7 +235,7 @@ public class DynmapMobsPlugin extends JavaPlugin {
         World curWorld = null;
         
         public void run() {
-            if(stop || (mobs == null) || (mobs.length == 0) || (set == null)) {
+            if(stop || (mobs == null) || (mobs.length == 0) || (markerSets == null || markerSets.size()==0)) {
                 return;
             }
             // If needed, prime world list
@@ -432,7 +433,7 @@ public class DynmapMobsPlugin extends JavaPlugin {
                     label = label + " [" + (int)x + "," + (int)y + "," + (int)z + "]";
                 }
                 if(m == null) { /* Not found?  Need new one */
-                    m = set.createMarker("mob"+le.getEntityId(), label, curWorld.getName(), x, y, z, mobs[i].icon, false);
+                	m = markerSets.get(mobs[i].occursInMarkerSet).createMarker("mob"+le.getEntityId(), label, curWorld.getName(), x, y, z, mobs[i].icon, false);
                 }
                 else {  /* Else, update position if needed */
                     m.setLocation(curWorld.getName(), x, y, z);
@@ -440,7 +441,7 @@ public class DynmapMobsPlugin extends JavaPlugin {
                     m.setMarkerIcon(mobs[i].icon);
                 }
                 if (m != null) {
-                    newmap.put(le.getEntityId(), m);    /* Add to new map */
+                	newmap.put(le.getEntityId(), m);    /* Add to new map */
                 }
             }
             getServer().getScheduler().scheduleSyncDelayedTask(DynmapMobsPlugin.this, this, 1);
@@ -455,7 +456,7 @@ public class DynmapMobsPlugin extends JavaPlugin {
         World curWorld = null;
 
         public void run() {
-            if(stop || (vehicles == null) || (vehicles.length == 0) || (vset == null)) {
+            if(stop || (vehicles == null) || (vehicles.length == 0) || (markerSets == null || markerSets.size()==0)) {
                 return;
             }
             // If needed, prime world list
@@ -566,14 +567,16 @@ public class DynmapMobsPlugin extends JavaPlugin {
                     label = label + " [" + (int)x + "," + (int)y + "," + (int)z + "]";
                 }
                 if(m == null) { /* Not found?  Need new one */
-                    m = vset.createMarker("vehicle"+le.getEntityId(), label, curWorld.getName(), x, y, z, vehicles[i].icon, false);
+                	m = markerSets.get(vehicles[i].occursInMarkerSet).createMarker("vehicle"+le.getEntityId(), label, curWorld.getName(), x, y, z, vehicles[i].icon, false);
                 }
                 else {  /* Else, update position if needed */
                     m.setLocation(curWorld.getName(), x, y, z);
                     m.setLabel(label);
                     m.setMarkerIcon(vehicles[i].icon);
                 }
-                newmap.put(le.getEntityId(), m);    /* Add to new map */
+                if(m != null) {
+                	newmap.put(le.getEntityId(), m);    /* Add to new map */
+                }
             }
             getServer().getScheduler().scheduleSyncDelayedTask(DynmapMobsPlugin.this, this, 1);
         }
@@ -670,13 +673,12 @@ public class DynmapMobsPlugin extends JavaPlugin {
         /* Load configuration */
         if(reload) {
             reloadConfig();
-            if(set != null)  {
-                set.deleteMarkerSet();
-                set = null;
-            }
-            if(vset != null)  {
-                vset.deleteMarkerSet();
-                vset = null;
+            if(markerSets != null && markerSets.keySet().size()>0) {
+            	for(String mSetKey : markerSets.keySet()) {
+            		MarkerSet mSet = markerSets.get(mSetKey);
+            		mSet.deleteMarkerSet();
+            		markerSets.remove(mSetKey);
+            	}
             }
             mobicons.clear();
             vehicleicons.clear();
@@ -690,12 +692,63 @@ public class DynmapMobsPlugin extends JavaPlugin {
         cfg.options().copyDefaults(true);   /* Load defaults, if needed */
         this.saveConfig();  /* Save updates, if needed */
         
+        // Mapping containing which mobs are enabled by which layer
+        Map<String, String> enabledMobs = new HashMap<String, String>();
+        // Required properties for a layer config value
+        Set<String> requiredLayerProps = new HashSet<String>();
+        requiredLayerProps.add("entities");
+        // Iterate keys within "layers" config item
+        for(String layerKey : cfg.getConfigurationSection("layers").getKeys(false)) {
+        	// Fetch properties of the layer
+        	Set<String> layerProps = cfg.getConfigurationSection("layers."+layerKey).getKeys(false);
+        	// Check if required properties are found
+        	if(layerProps.containsAll(requiredLayerProps)) {
+        		for(String mobIdentifier : cfg.getStringList("layers."+layerKey+".entities")) {
+        			// If the found entity wasn't enabled yet map it to this layer
+        			if(!enabledMobs.containsKey(mobIdentifier)) {
+        				enabledMobs.put(mobIdentifier, layerKey);
+        			} else {
+        				info("Entity: "+mobIdentifier+" already encountered in different layer, skipping...");
+        			}
+        		}
+        		
+        		MarkerSet mSet = markerapi.getMarkerSet(layerKey+".markerset");
+                if(mSet == null)
+                	mSet = markerapi.createMarkerSet(layerKey+".markerset", layerKey, null, false);
+                else
+                	mSet.setMarkerSetLabel(layerKey);
+                if(mSet == null) {
+                    severe("Error creating marker set");
+                    return;
+                }
+                mSet.setLayerPriority(cfg.getInt("layers."+layerKey+".layerprio", 10));
+                mSet.setHideByDefault(cfg.getBoolean("layers."+layerKey+".hidebydefault", false));
+                int minzoom = cfg.getInt("layers."+layerKey+".minzoom", 0);
+                if(minzoom > 0) /* Don't call if non-default - lets us work with pre-0.28 dynmap */
+                	mSet.setMinZoom(minzoom);
+                tinyicons = cfg.getBoolean("layers."+layerKey+".tinyicons", false);
+                nolabels = cfg.getBoolean("layers."+layerKey+".nolabels", false);
+                inc_coord = cfg.getBoolean("layers."+layerKey+".inc-coord", false);
+                
+                // Add the markerSet to the layer mapping
+                markerSets.put(layerKey, mSet);
+                
+                info("Enabled layer "+layerKey);
+        	} else {
+        		info("Layer: "+layerKey+" did not contain all required properties, skipping.");
+        	}
+        	
+        }
+
         /* Now, check which mobs are enabled */
         Set<Class<Entity>> clsset = new HashSet<Class<Entity>>();
         int cnt = 0;
         for(int i = 0; i < configmobs.length; i++) {
             configmobs[i].init();
-            configmobs[i].enabled = cfg.getBoolean("mobs." + configmobs[i].mobid, false);
+            if(enabledMobs.containsKey(configmobs[i].mobid)) {
+            	configmobs[i].enabled = true;
+            	configmobs[i].occursInMarkerSet = enabledMobs.get(configmobs[i].mobid);
+            }
             configmobs[i].icon = markerapi.getMarkerIcon("mobs." + configmobs[i].mobid);
             InputStream in = null;
             if(tinyicons)
@@ -727,46 +780,16 @@ public class DynmapMobsPlugin extends JavaPlugin {
 
         hideifshadow = cfg.getInt("update.hideifshadow", 15);
         hideifundercover = cfg.getInt("update.hideifundercover", 15);
-        /* Now, add marker set for mobs (make it transient) */
-        if(mobs.length > 0) {
-            set = markerapi.getMarkerSet("mobs.markerset");
-            if(set == null)
-                set = markerapi.createMarkerSet("mobs.markerset", cfg.getString("layer.name", "Mobs"), null, false);
-            else
-                set.setMarkerSetLabel(cfg.getString("layer.name", "Mobs"));
-            if(set == null) {
-                severe("Error creating marker set");
-                return;
-            }
-            set.setLayerPriority(cfg.getInt("layer.layerprio", 10));
-            set.setHideByDefault(cfg.getBoolean("layer.hidebydefault", false));
-            int minzoom = cfg.getInt("layer.minzoom", 0);
-            if(minzoom > 0) /* Don't call if non-default - lets us work with pre-0.28 dynmap */
-                set.setMinZoom(minzoom);
-            tinyicons = cfg.getBoolean("layer.tinyicons", false);
-            nolabels = cfg.getBoolean("layer.nolabels", false);
-            inc_coord = cfg.getBoolean("layer.inc-coord", false);
-            /* Get position resolution */
-            res = cfg.getDouble("update.resolution", 1.0);
-            /* Set up update job - based on period */
-            double per = cfg.getDouble("update.period", 5.0);
-            if(per < 2.0) per = 2.0;
-            updperiod = (long)(per*20.0);
-            updates_per_tick = cfg.getInt("update.mobs-per-tick", 20);
-            stop = false;
-            getServer().getScheduler().scheduleSyncDelayedTask(this, new MobUpdate(), updperiod);
-            info("Enable layer for mobs");
-        }
-        else {
-            info("Layer for mobs disabled");
-        }
-
+        
         /* Now, check which vehicles are enabled */
         clsset = new HashSet<Class<Entity>>();
         cnt = 0;
         for(int i = 0; i < configvehicles.length; i++) {
             configvehicles[i].init();
-            configvehicles[i].enabled = cfg.getBoolean("vehicles." + configvehicles[i].mobid, false);
+            if(enabledMobs.containsKey(configvehicles[i].mobid)) {
+            	configvehicles[i].enabled = true;
+            	configvehicles[i].occursInMarkerSet = enabledMobs.get(configvehicles[i].mobid);
+            }
             configvehicles[i].icon = markerapi.getMarkerIcon("vehicles." + configvehicles[i].mobid);
             InputStream in = null;
             if(tinyicons)
@@ -795,51 +818,32 @@ public class DynmapMobsPlugin extends JavaPlugin {
                 clsset.add(configvehicles[i].mobclass);
             }
         }
-        /* Now, add marker set for vehicles (make it transient) */
-        if(vehicles.length > 0) {
-            vset = markerapi.getMarkerSet("vehicles.markerset");
-            if(vset == null)
-                vset = markerapi.createMarkerSet("vehicles.markerset", cfg.getString("vehiclelayer.name", "Vehicles"), null, false);
-            else
-                vset.setMarkerSetLabel(cfg.getString("vehiclelayer.name", "Vehicles"));
-            if(vset == null) {
-                severe("Error creating marker set");
-                return;
-            }
-            vset.setLayerPriority(cfg.getInt("vehiclelayer.layerprio", 10));
-            vset.setHideByDefault(cfg.getBoolean("vehiclelayer.hidebydefault", false));
-            int minzoom = cfg.getInt("vehiclelayer.minzoom", 0);
-            if(minzoom > 0) /* Don't call if non-default - lets us work with pre-0.28 dynmap */
-                vset.setMinZoom(minzoom);
-            vtinyicons = cfg.getBoolean("vehiclelayer.tinyicons", false);
-            vnolabels = cfg.getBoolean("vehiclelayer.nolabels", false);
-            vinc_coord = cfg.getBoolean("vehiclelayer.inc-coord", false);
-            /* Get position resolution */
-            res = cfg.getDouble("update.resolution", 1.0);
-            /* Set up update job - based on period */
-            double per = cfg.getDouble("update.vehicleperiod", 5.0);
-            if(per < 2.0) per = 2.0;
-            vupdperiod = (long)(per*20.0);
-            vupdates_per_tick = cfg.getInt("update.vehicles-per-tick", 20);
-            stop = false;
-            getServer().getScheduler().scheduleSyncDelayedTask(this, new VehicleUpdate(), vupdperiod / 3);
-            info("Enable layer for vehicles");
-        }
-        else {
-            info("Layer for vehicles disabled");
-        }
-
-        info("version " + this.getDescription().getVersion() + " is activated");
+        
+        /* Get position resolution */
+        res = cfg.getDouble("update.resolution", 1.0);
+        /* Set up update job - based on period */
+        double per = cfg.getDouble("update.period", 5.0);
+        if(per < 2.0) per = 2.0;
+        updperiod = (long)(per*20.0);
+        updates_per_tick = cfg.getInt("update.mobs-per-tick", 20);
+        /* Set up update job - based on period */
+        double vuper = cfg.getDouble("update.vehicleperiod", 5.0);
+        if(vuper < 2.0) vuper = 2.0;
+        vupdperiod = (long)(vuper*20.0);
+        vupdates_per_tick = cfg.getInt("update.vehicles-per-tick", 20);
+        stop = false;
+        
+        getServer().getScheduler().scheduleSyncDelayedTask(this, new MobUpdate(), updperiod);
+        getServer().getScheduler().scheduleSyncDelayedTask(this, new VehicleUpdate(), vupdperiod);
     }
 
     public void onDisable() {
-        if(set != null) {
-            set.deleteMarkerSet();
-            set = null;
-        }
-        if(vset != null) {
-            vset.deleteMarkerSet();
-            vset = null;
+        if(markerSets != null && markerSets.keySet().size()>0) {
+        	for(String mSetKey : markerSets.keySet()) {
+        		MarkerSet mSet = markerSets.get(mSetKey);
+        		mSet.deleteMarkerSet();
+        		markerSets.remove(mSetKey);
+        	}
         }
         mobicons.clear();
         vehicleicons.clear();
